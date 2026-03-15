@@ -1,0 +1,101 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+body {
+    margin: 0; padding: 0; overflow: hidden;
+    background-color: #020105;
+    font-family: 'Orbitron', sans-serif;
+    touch-action: none;
+}
+
+/* --- UI OVERLAYS --- */
+#overlay-ui {
+    position: absolute; width: 100%; height: 100%;
+    z-index: 100; pointer-events: none;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+
+.screen {
+    position: absolute; width: 100%; height: 100%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: radial-gradient(circle, rgba(15, 5, 40, 0.9) 0%, rgba(5, 2, 15, 0.98) 100%);
+    backdrop-filter: blur(15px);
+    pointer-events: auto;
+    transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#start-screen { z-index: 110; }
+#win-screen { z-index: 120; display: none; }
+
+.hidden { opacity: 0; pointer-events: none; }
+
+h1 {
+    font-size: clamp(40px, 8vw, 80px); color: #00ffff; margin-bottom: 5px;
+    text-shadow: 0 0 20px #00ffff, 0 0 40px #ff00ff;
+    text-align: center; font-weight: 900;
+    letter-spacing: 5px;
+}
+
+.btn {
+    background: rgba(0, 255, 255, 0.05); border: 2px solid #00ffff;
+    padding: 18px 60px; color: #00ffff; font-size: 22px;
+    cursor: pointer; text-transform: uppercase; letter-spacing: 4px;
+    transition: all 0.3s; position: relative;
+    overflow: hidden;
+}
+
+.btn:hover {
+    background: #00ffff; color: #000; box-shadow: 0 0 50px #00ffff;
+    transform: scale(1.1);
+}
+
+#hud {
+    position: absolute; top: 30px; left: 30px;
+    pointer-events: none; z-index: 50; display: none;
+}
+
+.hud-item {
+    color: #fff; font-size: 20px; font-weight: 700; margin-bottom: 8px;
+    text-shadow: 0 0 10px #00ffff;
+}
+
+#speed-unit { font-size: 12px; color: #00ffff; }
+
+#nitro-container {
+    width: 200px; height: 8px; background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 0, 255, 0.5); border-radius: 4px;
+    overflow: hidden; margin-top: 10px;
+}
+
+#nitro-bar {
+    width: 100%; height: 100%; background: linear-gradient(90deg, #ff00ff, #00ffff);
+    box-shadow: 0 0 20px #ff00ff; transition: width 0.1s;
+}
+
+#countdown {
+    font-size: 150px; color: #fff; font-weight: 900;
+    text-shadow: 0 0 40px #ff00ff; display: none;
+    z-index: 200;
+}
+
+#mobile-controls {
+    position: absolute; bottom: 40px; width: 100%;
+    display: none; justify-content: space-between;
+    padding: 0 40px; box-sizing: border-box; z-index: 60;
+}
+
+.ctrl-btn {
+    width: 85px; height: 85px; background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(0, 255, 255, 0.3); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: #00ffff; font-size: 28px; pointer-events: auto;
+    backdrop-filter: blur(5px);
+}
+
+.ctrl-btn:active { background: rgba(0, 255, 255, 0.2); transform: scale(0.9); }
+
+#speed-lines {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; opacity: 0; transition: opacity 0.3s;
+    background: repeating-radial-gradient(circle, transparent 0, transparent 40%, rgba(0, 255, 255, 0.1) 45%, transparent 50%);
+    z-index: 10;
+}

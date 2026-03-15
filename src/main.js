@@ -1,10 +1,11 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { CONFIG } from './config.js';
 
 // --- STATE ---
 let scene, camera, renderer, clock;
 let car, carBody, wheels = [];
-let cores = [], obstacles = [], speedLines = [], trails = [], destructibles = [];
+let cores = [], obstacles = [], speedLines = [], trails = [], destructibles = [], particles = [];
 let npcCars = [], policeCars = [];
 let checkpoints = [], currentCheckpoint = 0;
 let wantedLevel = 0;
@@ -61,10 +62,9 @@ function setupLights() {
 }
 
 function setupWorld() {
-    // World Constants
     const worldSize = 3000;
 
-    // 1. SEA (Base Floor)
+    // 1. SEA
     const seaGeo = new THREE.PlaneGeometry(worldSize * 2, worldSize * 2);
     const seaMat = new THREE.MeshStandardMaterial({
         color: 0x0044ff,
@@ -75,32 +75,33 @@ function setupWorld() {
     });
     const sea = new THREE.Mesh(seaGeo, seaMat);
     sea.rotation.x = -Math.PI / 2;
-    sea.position.y = -2; // Slightly below ground
+    sea.position.y = -2;
     scene.add(sea);
 
     // 2. MAIN ISLAND
     const islandGeo = new THREE.PlaneGeometry(worldSize, worldSize);
-    const islandMat = new THREE.MeshStandardMaterial({ color: 0x1a472a, roughness: 0.9 }); // Dark Green
+    const texLoader = new THREE.TextureLoader();
+    const grassTex = texLoader.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/textures/terrain/grasslight-big.jpg');
+    grassTex.wrapS = grassTex.wrapT = THREE.RepeatWrapping;
+    grassTex.repeat.set(50, 50);
+
+    const islandMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 1 });
     const island = new THREE.Mesh(islandGeo, islandMat);
     island.rotation.x = -Math.PI / 2;
     island.receiveShadow = true;
     scene.add(island);
 
-    // 3. ROADS (Grid-like for city, winding for village/forest)
+    // 3. ROADS
     createRoads();
 
     // 4. RIVER
     createRiver();
 
     // 5. BIOMES
-    createForest(-500, -500, 800);
-    createVillage(500, 500, 400);
+    createForest(-1000, -1000, 1500);
+    createVillage(800, 800, 400);
     createCity(0, 800, 600);
 
-    // 5. SKYBOX / ENVIRONMENT
-    // Removed explicit sky mesh as scene background and fog handle it better for now
-
-    // Add some clouds
     for(let i=0; i<50; i++) {
         const cloud = new THREE.Mesh(
             new THREE.BoxGeometry(20 + Math.random()*50, 10, 20 + Math.random()*30),
@@ -112,13 +113,14 @@ function setupWorld() {
 }
 
 function createRoads() {
-    const roadMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.7 });
+    const texLoader = new THREE.TextureLoader();
+    const roadMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 });
+    const crateTex = texLoader.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/textures/crate.gif');
 
-    // Add some random crates (destructibles)
     for(let i=0; i<50; i++) {
         const crate = new THREE.Mesh(
             new THREE.BoxGeometry(3, 3, 3),
-            new THREE.MeshStandardMaterial({ color: 0x8b4513 })
+            new THREE.MeshStandardMaterial({ map: crateTex })
         );
         crate.position.set((Math.random()-0.5)*1000, 1.5, (Math.random()-0.5)*1000);
         if (Math.abs(crate.position.x) < 25 || Math.abs(crate.position.z) < 25) {
@@ -127,21 +129,18 @@ function createRoads() {
         }
     }
 
-    // Main Highway (North-South)
     const mainRoad = new THREE.Mesh(new THREE.PlaneGeometry(40, 3000), roadMat);
     mainRoad.rotation.x = -Math.PI / 2;
     mainRoad.position.y = 0.05;
     mainRoad.receiveShadow = true;
     scene.add(mainRoad);
 
-    // Cross Road (East-West)
     const crossRoad = new THREE.Mesh(new THREE.PlaneGeometry(3000, 40), roadMat);
     crossRoad.rotation.x = -Math.PI / 2;
     crossRoad.position.y = 0.05;
     crossRoad.receiveShadow = true;
     scene.add(crossRoad);
 
-    // Road markings
     const markerMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     for(let i= -1500; i< 1500; i+= 50) {
         const marker = new THREE.Mesh(new THREE.PlaneGeometry(2, 15), markerMat);
@@ -158,63 +157,98 @@ function createRoads() {
 
 function createForest(x, z, size) {
     const treeCount = 200;
+    const leafMat = new THREE.MeshStandardMaterial({ color: 0x134015, roughness: 0.8 });
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4d2926, roughness: 0.9 });
+
     for(let i=0; i<treeCount; i++) {
         const tx = x + (Math.random()-0.5) * size;
         const tz = z + (Math.random()-0.5) * size;
 
         const tree = new THREE.Group();
+        const trunkH = 4 + Math.random() * 4;
         const trunk = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.5, 0.7, 5),
-            new THREE.MeshStandardMaterial({ color: 0x4d2926 })
+            new THREE.CylinderGeometry(0.3, 0.6, trunkH),
+            trunkMat
         );
-        trunk.position.y = 2.5;
+        trunk.position.y = trunkH / 2;
         trunk.castShadow = true;
         tree.add(trunk);
 
-        const leaves = new THREE.Mesh(
-            new THREE.ConeGeometry(3, 8, 8),
-            new THREE.MeshStandardMaterial({ color: 0x134015 })
-        );
-        leaves.position.y = 7;
-        leaves.castShadow = true;
-        tree.add(leaves);
+        for(let j=0; j<3; j++) {
+            const lSize = 4 - j;
+            const leaves = new THREE.Mesh(
+                new THREE.ConeGeometry(lSize, 5, 8),
+                leafMat
+            );
+            leaves.position.y = trunkH + (j * 2);
+            leaves.castShadow = true;
+            tree.add(leaves);
+        }
 
         tree.position.set(tx, 0, tz);
         scene.add(tree);
 
-        // Smaller trees are destructible, big ones are obstacles
         if (Math.random() > 0.7) {
             destructibles.push({ mesh: tree, type: 'tree' });
         } else {
             obstacles.push(trunk);
         }
     }
+
+    const pathMat = new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 1 });
+    const path = new THREE.Mesh(new THREE.PlaneGeometry(30, 1000), pathMat);
+    path.rotation.x = -Math.PI / 2;
+    path.position.set(x, 0.05, z);
+    scene.add(path);
+
+    for(let i=0; i<50; i++) {
+        const rx = x + (Math.random()-0.5) * size;
+        const rz = z + (Math.random()-0.5) * size;
+
+        const rock = new THREE.Mesh(
+            new THREE.DodecahedronGeometry(1 + Math.random()*2),
+            new THREE.MeshStandardMaterial({ color: 0x777777 })
+        );
+        rock.position.set(rx, 0.5, rz);
+        rock.scale.y = 0.5;
+        scene.add(rock);
+        obstacles.push(rock);
+    }
 }
 
 function createVillage(x, z, size) {
     const houseCount = 15;
+    const texLoader = new THREE.TextureLoader();
+    const wallTex = texLoader.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/textures/brick_diffuse.jpg');
+    wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
+    wallTex.repeat.set(2, 1);
+
     for(let i=0; i<houseCount; i++) {
         const hx = x + (Math.random()-0.5) * size;
         const hz = z + (Math.random()-0.5) * size;
-        if(Math.abs(hx) < 30 || Math.abs(hz) < 30) continue; // Keep roads clear
+        if(Math.abs(hx) < 30 || Math.abs(hz) < 30) continue;
 
         const house = new THREE.Group();
         const base = new THREE.Mesh(
             new THREE.BoxGeometry(10, 8, 10),
-            new THREE.MeshStandardMaterial({ color: 0xddc9a3 })
+            new THREE.MeshStandardMaterial({ map: wallTex, roughness: 1 })
         );
         base.position.y = 4;
         base.castShadow = true;
         house.add(base);
 
         const roof = new THREE.Mesh(
-            new THREE.ConeGeometry(8, 6, 4),
-            new THREE.MeshStandardMaterial({ color: 0x8b4513 })
+            new THREE.ConeGeometry(9, 6, 4),
+            new THREE.MeshStandardMaterial({ color: 0x8b4513, roughness: 1 })
         );
         roof.position.y = 11;
         roof.rotation.y = Math.PI / 4;
         roof.castShadow = true;
         house.add(roof);
+
+        const door = new THREE.Mesh(new THREE.PlaneGeometry(2, 4), new THREE.MeshStandardMaterial({color: 0x4d2926}));
+        door.position.set(0, 2, 5.01);
+        house.add(door);
 
         house.position.set(hx, 0, hz);
         scene.add(house);
@@ -229,17 +263,40 @@ function createCity(x, z, size) {
         const bz = z + (Math.random()-0.5) * size;
         if(Math.abs(bx) < 30 || Math.abs(bz) < 30) continue;
 
-        const h = 20 + Math.random() * 60;
-        const building = new THREE.Mesh(
-            new THREE.BoxGeometry(15, h, 15),
-            new THREE.MeshStandardMaterial({ color: 0x334455, metalness: 0.5, roughness: 0.2 })
-        );
-        building.position.set(bx, h/2, bz);
-        building.castShadow = true;
-        scene.add(building);
-        obstacles.push(building);
+        const h = 40 + Math.random() * 100;
+        const w = 15 + Math.random() * 10;
 
-        // Add some street lights near buildings if close to road
+        const building = new THREE.Group();
+        const main = new THREE.Mesh(
+            new THREE.BoxGeometry(w, h, w),
+            new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.8, roughness: 0.1 })
+        );
+        main.position.y = h/2;
+        main.castShadow = true;
+        building.add(main);
+
+        const winRows = Math.floor(h / 5);
+        const winCols = Math.floor(w / 3);
+        const winGeo = new THREE.BoxGeometry(0.5, 0.5, 0.1);
+        const winMat = new THREE.MeshStandardMaterial({ color: 0xffffaa, emissive: 0xffffaa, emissiveIntensity: 0.5 });
+
+        for(let r=1; r<winRows; r++) {
+            for(let c=0; c<winCols; c++) {
+                if(Math.random() > 0.3) {
+                    const win = new THREE.Mesh(winGeo, winMat);
+                    win.position.set(-w/2 + c*3 + 1.5, r*5, w/2 + 0.1);
+                    building.add(win);
+                    const win2 = win.clone();
+                    win2.position.z = -w/2 - 0.1;
+                    building.add(win2);
+                }
+            }
+        }
+
+        building.position.set(bx, 0, bz);
+        scene.add(building);
+        obstacles.push(main);
+
         if(Math.abs(bx) < 60) {
             const lamp = new THREE.Group();
             const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 10), new THREE.MeshStandardMaterial({color: 0x333333}));
@@ -264,7 +321,6 @@ function setupTraffic() {
     const trafficCount = 20;
     for(let i=0; i<trafficCount; i++) {
         const npc = createNPCCar(0x555555 + Math.random() * 0xaaaaaa);
-        // Randomly place on roads
         const onMainRoad = Math.random() > 0.5;
         if(onMainRoad) {
             npc.position.set(Math.random() > 0.5 ? 10 : -10, 0, (Math.random()-0.5)*2000);
@@ -292,12 +348,10 @@ function createNPCCar(color) {
 }
 
 function setupPolice() {
-    // Police will be spawned when wanted level > 0
 }
 
 function spawnPolice() {
     const p = createNPCCar(0x111111);
-    // Add siren
     const siren = new THREE.Mesh(
         new THREE.BoxGeometry(1, 0.3, 0.5),
         new THREE.MeshBasicMaterial({ color: 0xff0000 })
@@ -358,10 +412,9 @@ function createRiver() {
     });
     const river = new THREE.Mesh(riverGeo, riverMat);
     river.rotation.x = -Math.PI / 2;
-    river.position.set(0, -0.1, -400); // Crosses the map
+    river.position.set(0, -0.1, -400);
     scene.add(river);
 
-    // Bridges
     const bridgeGeo = new THREE.BoxGeometry(45, 2, 70);
     const bridgeMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
     const bridge = new THREE.Mesh(bridgeGeo, bridgeMat);
@@ -373,82 +426,61 @@ function setupCar() {
     car = new THREE.Group();
     carBody = new THREE.Group();
 
-    // Main Chassis
-    const chassis = new THREE.Mesh(
-        new THREE.BoxGeometry(2.4, 0.5, 4.8),
-        new THREE.MeshStandardMaterial({ color: 0xcc0000, metalness: 0.8, roughness: 0.2 })
-    );
-    chassis.position.y = 0.6;
-    chassis.castShadow = true;
-    carBody.add(chassis);
+    const loader = new GLTFLoader();
+    loader.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/Ferrari.glb', (gltf) => {
+        const model = gltf.scene;
+        model.scale.set(1.2, 1.2, 1.2);
+        model.position.y = -0.5;
+        model.rotation.y = Math.PI;
+        model.traverse(n => {
+            if(n.isMesh) {
+                n.castShadow = true;
+                n.receiveShadow = true;
+            }
+        });
+        carBody.add(model);
+    }, undefined, (e) => {
+        console.error("Car model load failed, using fallback", e);
+        setupFallbackCar();
+    });
 
-    // Upper body / Cabin
-    const cabin = new THREE.Mesh(
-        new THREE.BoxGeometry(1.8, 0.6, 2.5),
-        new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 1, roughness: 0.1 })
-    );
-    cabin.position.set(0, 1.1, -0.2);
-    cabin.castShadow = true;
-    carBody.add(cabin);
-
-    // Windows (simple overlay meshes)
-    const windowMat = new THREE.MeshStandardMaterial({ color: 0x00ffff, transparent: true, opacity: 0.5 });
-    const frontWindshield = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.8), windowMat);
-    frontWindshield.position.set(0, 1.2, 1.06);
-    frontWindshield.rotation.x = -0.3;
-    carBody.add(frontWindshield);
-
-    // Spoiler
-    const spoilerPost1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 0.1), new THREE.MeshStandardMaterial({color: 0x111111}));
-    spoilerPost1.position.set(0.8, 1.0, -2.0);
-    carBody.add(spoilerPost1);
-    const spoilerPost2 = spoilerPost1.clone();
-    spoilerPost2.position.x = -0.8;
-    carBody.add(spoilerPost2);
-    const spoilerWing = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.1, 0.8), new THREE.MeshStandardMaterial({color: 0xcc0000}));
-    spoilerWing.position.set(0, 1.3, -2.0);
-    carBody.add(spoilerWing);
-
-    // Headlights
-    const lightGeo = new THREE.BoxGeometry(0.6, 0.2, 0.1);
-    const lightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    const hl1 = new THREE.Mesh(lightGeo, lightMat);
-    hl1.position.set(0.8, 0.6, 2.41);
-    carBody.add(hl1);
-    const hl2 = hl1.clone();
-    hl2.position.x = -0.8;
-    carBody.add(hl2);
-
-    // Add point lights for headlights
-    const hLight1 = new THREE.SpotLight(0xffffff, 2, 50, Math.PI/6);
-    hLight1.position.set(0.8, 0.6, 2.41);
-    hLight1.target.position.set(0.8, 0.6, 10);
+    const hLight1 = new THREE.SpotLight(0xffffff, 2, 100, Math.PI/6);
+    hLight1.position.set(0.8, 1, 2.5);
+    hLight1.target.position.set(0.8, 0.6, 15);
     car.add(hLight1);
     car.add(hLight1.target);
 
+    const hLight2 = hLight1.clone();
+    hLight2.position.x = -0.8;
+    hLight2.target.position.x = -0.8;
+    car.add(hLight2);
+    car.add(hLight2.target);
+
     car.add(carBody);
+    scene.add(car);
+}
 
-    const wGeo = new THREE.CylinderGeometry(0.48, 0.48, 0.7, 24);
-    const wMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
-    const rimMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.8 });
+function setupFallbackCar() {
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xcc0000, metalness: 0.9, roughness: 0.1 });
+    const blackMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.9, roughness: 0.1 });
 
-    [[-1.2, 1.5], [1.2, 1.5], [-1.2, -1.5], [1.2, -1.5]].forEach(p => {
-        const w = new THREE.Group();
-        const tire = new THREE.Mesh(wGeo, wMat);
-        tire.rotation.z = Math.PI / 2;
-        w.add(tire);
+    const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.6, 5), bodyMat);
+    chassis.position.y = 0.6;
+    carBody.add(chassis);
 
-        const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.72, 12), rimMat);
-        rim.rotation.z = Math.PI / 2;
-        w.add(rim);
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(2, 0.7, 2.5), blackMat);
+    cabin.position.set(0, 1.1, -0.3);
+    carBody.add(cabin);
 
-        w.position.set(p[0], 0.48, p[1]);
-        w.castShadow = true;
+    const wGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.7, 24);
+    const wMat = new THREE.MeshStandardMaterial({ color: 0x050505 });
+    [[-1.25, 1.6], [1.25, 1.6], [-1.25, -1.6], [1.25, -1.6]].forEach(p => {
+        const w = new THREE.Mesh(wGeo, wMat);
+        w.rotation.z = Math.PI / 2;
+        w.position.set(p[0], 0.5, p[1]);
         car.add(w);
         wheels.push(w);
     });
-
-    scene.add(car);
 }
 
 function setupLevel() {
@@ -491,49 +523,39 @@ function update() {
     if (gameState !== 'PLAYING') return;
 
     updateRace();
+    updateParticles();
 
-    // Nitro & Speed Lines
     let targetMax = physics.maxSpeed;
     const linesEl = document.getElementById('speed-lines');
     if (keys.shift && physics.nitro > 0 && physics.speed > 0.5) {
         targetMax = physics.nitroMax;
         physics.nitro -= 0.6;
         linesEl.style.opacity = '1';
-        camera.fov = THREE.MathUtils.lerp(camera.fov, 90, 0.1);
-        spawnTrail();
+        spawnSmoke();
     } else {
         physics.nitro = Math.min(100, physics.nitro + 0.15);
         linesEl.style.opacity = '0';
-        camera.fov = THREE.MathUtils.lerp(camera.fov, 70, 0.1);
     }
-    camera.updateProjectionMatrix();
-    document.getElementById('nitro-bar').style.width = physics.nitro + '%';
 
-    // Movement Physics
     if (keys.w) physics.speed += physics.accel;
     else if (keys.s) physics.speed -= physics.accel * 2;
     else physics.speed *= physics.friction;
 
     physics.speed = THREE.MathUtils.clamp(physics.speed, -0.5, targetMax);
 
-    // Drifting & Turning
     if (Math.abs(physics.speed) > 0.1) {
         const dir = physics.speed > 0 ? 1 : -1;
         let turnSpeed = physics.turn;
 
-        // Sharper turns when drifting (Handbrake feel with S while moving fast)
         if (keys.s && physics.speed > 0.8) {
             turnSpeed *= 2.0;
-            physics.driftFactor = THREE.MathUtils.lerp(physics.driftFactor, 0.5, 0.1);
-        } else {
-            physics.driftFactor = THREE.MathUtils.lerp(physics.driftFactor, 0, 0.1);
+            spawnSmoke();
         }
 
         if (keys.a) physics.angle += turnSpeed * dir;
         if (keys.d) physics.angle -= turnSpeed * dir;
     }
 
-    // Body Tilt
     let tiltTarget = 0;
     if (keys.a) tiltTarget = 0.15;
     if (keys.d) tiltTarget = -0.15;
@@ -546,12 +568,13 @@ function update() {
 
     wheels.forEach(w => w.rotation.x += physics.speed * 0.8);
 
-    // Camera Follow
     const camOffset = new THREE.Vector3(0, 6, -14).applyMatrix4(car.matrixWorld);
     camera.position.lerp(camOffset, 0.15);
     camera.lookAt(car.position.clone().add(new THREE.Vector3(0, 1, 0)));
 
-    // HUD
+    camera.fov = THREE.MathUtils.lerp(camera.fov, 70 + (Math.abs(physics.speed) * 15), 0.1);
+    camera.updateProjectionMatrix();
+
     document.getElementById('hud-score').innerText = `SCORE: ${score}`;
     document.getElementById('hud-speed').innerHTML = `${Math.floor(Math.abs(physics.speed * 140))} <span id="speed-unit">KM/H</span>`;
 
@@ -559,35 +582,30 @@ function update() {
 }
 
 function checkCollisions() {
-    // Obstacle Collision (Solid)
     obstacles.forEach(o => {
         const dist = car.position.distanceTo(o.getWorldPosition(new THREE.Vector3()));
         if(dist < 5) {
             physics.speed *= -0.5;
-            // Push car back slightly
             const bounceDir = car.position.clone().sub(o.getWorldPosition(new THREE.Vector3())).normalize();
             car.position.add(bounceDir.multiplyScalar(0.5));
+            camera.position.x += (Math.random()-0.5) * 2;
+            camera.position.y += (Math.random()-0.5) * 2;
         }
     });
 
-    // Destructible Collision (Tod Phod) - Iterate backwards for safe removal
     for (let i = destructibles.length - 1; i >= 0; i--) {
         const d = destructibles[i];
         const dist = car.position.distanceTo(d.mesh.position);
         if(dist < 5 && Math.abs(physics.speed) > 0.5) {
-            // "Break" the object
             d.mesh.rotation.x += (Math.random() + 0.5) * 1.5;
             d.mesh.rotation.z += (Math.random() - 0.5) * 1.5;
             d.mesh.position.y += 0.5;
-
-            // Apply some "explosion" force
             const force = car.position.clone().sub(d.mesh.position).normalize().negate();
             d.mesh.position.add(force.multiplyScalar(2));
 
-            // Remove after some time
             if (!d.broken) {
                 d.broken = true;
-                score += 10; // Bonus for destruction
+                score += 10;
                 document.getElementById('hud-score').innerText = `SCORE: ${score}`;
                 setTimeout(() => {
                     scene.remove(d.mesh);
@@ -595,6 +613,32 @@ function checkCollisions() {
                     if (idx > -1) destructibles.splice(idx, 1);
                 }, 2000);
             }
+        }
+    }
+}
+
+function spawnSmoke() {
+    const smokeGeo = new THREE.SphereGeometry(0.3, 8, 8);
+    const smokeMat = new THREE.MeshBasicMaterial({ color: 0xcccccc, transparent: true, opacity: 0.5 });
+    const smoke = new THREE.Mesh(smokeGeo, smokeMat);
+    smoke.position.copy(car.position);
+    smoke.position.y = 0.2;
+    smoke.life = 1.0;
+    smoke.vel = new THREE.Vector3((Math.random()-0.5)*0.1, Math.random()*0.1, (Math.random()-0.5)*0.1);
+    scene.add(smoke);
+    particles.push(smoke);
+}
+
+function updateParticles() {
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.life -= 0.02;
+        p.position.add(p.vel);
+        p.scale.multiplyScalar(1.05);
+        p.material.opacity = p.life * 0.5;
+        if (p.life <= 0) {
+            scene.remove(p);
+            particles.splice(i, 1);
         }
     }
 }
@@ -611,7 +655,8 @@ function spawnTrail() {
     trails.push(p);
     setTimeout(() => {
         scene.remove(p);
-        trails.splice(trails.indexOf(p), 1);
+        const idx = trails.indexOf(p);
+        if(idx > -1) trails.splice(idx, 1);
     }, 1000);
 }
 
@@ -632,8 +677,6 @@ function animate() {
 
 function updateNPCs() {
     if (gameState !== 'PLAYING') return;
-
-    // Update Traffic
     npcCars.forEach(npc => {
         if(npc.axis === 'z') {
             npc.position.z += npc.speed * npc.dir;
@@ -644,8 +687,6 @@ function updateNPCs() {
             if(Math.abs(npc.position.x) > 1500) npc.position.x *= -1;
             npc.rotation.y = npc.dir > 0 ? Math.PI/2 : -Math.PI/2;
         }
-
-        // Collision with player
         if(car.position.distanceTo(npc.position) < 5) {
             physics.speed *= 0.5;
             wantedLevel = Math.min(5, wantedLevel + 0.5);
@@ -654,24 +695,17 @@ function updateNPCs() {
         }
     });
 
-    // Update Police - Iterate backwards for safe removal
     for (let i = policeCars.length - 1; i >= 0; i--) {
         const p = policeCars[i];
-        // Simple chase logic
         const dir = car.position.clone().sub(p.position).normalize();
         p.position.add(dir.multiplyScalar(0.7));
         p.lookAt(car.position.x, 0, car.position.z);
-
-        // Siren flash
         if(p.light) p.light.color.setHex(Date.now() % 400 < 200 ? 0xff0000 : 0x0000ff);
-
         if(car.position.distanceTo(p.position) < 5) {
             physics.speed *= 0.8;
-            score = Math.max(0, score - 5); // Losing points when caught
+            score = Math.max(0, score - 5);
             document.getElementById('hud-score').innerText = `SCORE: ${score}`;
         }
-
-        // Despawn if too far
         if(car.position.distanceTo(p.position) > 400 && wantedLevel < 1) {
             scene.remove(p);
             policeCars.splice(i, 1);
@@ -705,7 +739,6 @@ function setupControls() {
     const map = { w: 'w', s: 's', a: 'a', d: 'd', arrowup: 'w', arrowdown: 's', arrowleft: 'a', arrowright: 'd', shift: 'shift', ' ': 'space' };
     window.onkeydown = (e) => { const k = map[e.key.toLowerCase()]; if (k) keys[k] = true; };
     window.onkeyup = (e) => { const k = map[e.key.toLowerCase()]; if (k) keys[k] = false; };
-
     const bind = (id, k) => {
         const el = document.getElementById(id);
         if(!el) return;

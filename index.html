@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Neon Drift: Pro</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+        body {
+            margin: 0; padding: 0; overflow: hidden;
+            background-color: #020105; 
+            font-family: 'Orbitron', sans-serif;
+            touch-action: none;
+        }
+
+        /* --- UI OVERLAYS --- */
+        #overlay-ui {
+            position: absolute; width: 100%; height: 100%;
+            z-index: 100; pointer-events: none;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+
+        .screen {
+            position: absolute; width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: radial-gradient(circle, rgba(15, 5, 40, 0.9) 0%, rgba(5, 2, 15, 0.98) 100%);
+            backdrop-filter: blur(15px);
+            pointer-events: auto;
+            transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        #start-screen { z-index: 110; }
+        #win-screen { z-index: 120; display: none; }
+        
+        .hidden { opacity: 0; pointer-events: none; }
+
+        h1 {
+            font-size: clamp(40px, 8vw, 80px); color: #00ffff; margin-bottom: 5px;
+            text-shadow: 0 0 20px #00ffff, 0 0 40px #ff00ff;
+            text-align: center; font-weight: 900;
+            letter-spacing: 5px;
+        }
+
+        .btn {
+            background: rgba(0, 255, 255, 0.05); border: 2px solid #00ffff;
+            padding: 18px 60px; color: #00ffff; font-size: 22px;
+            cursor: pointer; text-transform: uppercase; letter-spacing: 4px;
+            transition: all 0.3s; position: relative;
+            overflow: hidden;
+        }
+
+        .btn:hover {
+            background: #00ffff; color: #000; box-shadow: 0 0 50px #00ffff;
+            transform: scale(1.1);
+        }
+
+        #hud {
+            position: absolute; top: 30px; left: 30px;
+            pointer-events: none; z-index: 50; display: none;
+        }
+
+        .hud-item {
+            color: #fff; font-size: 20px; font-weight: 700; margin-bottom: 8px;
+            text-shadow: 0 0 10px #00ffff;
+        }
+
+        #speed-unit { font-size: 12px; color: #00ffff; }
+
+        #nitro-container {
+            width: 200px; height: 8px; background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 0, 255, 0.5); border-radius: 4px;
+            overflow: hidden; margin-top: 10px;
+        }
+
+        #nitro-bar {
+            width: 100%; height: 100%; background: linear-gradient(90deg, #ff00ff, #00ffff);
+            box-shadow: 0 0 20px #ff00ff; transition: width 0.1s;
+        }
+
+        #countdown {
+            font-size: 150px; color: #fff; font-weight: 900;
+            text-shadow: 0 0 40px #ff00ff; display: none;
+            z-index: 200;
+        }
+
+        #mobile-controls {
+            position: absolute; bottom: 40px; width: 100%;
+            display: none; justify-content: space-between;
+            padding: 0 40px; box-sizing: border-box; z-index: 60;
+        }
+
+        .ctrl-btn {
+            width: 85px; height: 85px; background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(0, 255, 255, 0.3); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: #00ffff; font-size: 28px; pointer-events: auto;
+            backdrop-filter: blur(5px);
+        }
+
+        .ctrl-btn:active { background: rgba(0, 255, 255, 0.2); transform: scale(0.9); }
+
+        #speed-lines {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; opacity: 0; transition: opacity 0.3s;
+            background: repeating-radial-gradient(circle, transparent 0, transparent 40%, rgba(0, 255, 255, 0.1) 45%, transparent 50%);
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="speed-lines"></div>
+
+    <div id="overlay-ui">
+        <div id="start-screen" class="screen">
+            <h1>NEON DRIFT PRO</h1>
+            <p style="color: #ff00ff; margin-bottom: 40px; letter-spacing: 2px;">MILLION DOLLAR EDITION</p>
+            <button class="btn" onclick="startGame()">IGNITION</button>
+            <p style="color: rgba(255,255,255,0.4); font-size: 11px; margin-top: 30px;">WASD TO DRIFT | SHIFT FOR NITRO</p>
+        </div>
+
+        <div id="countdown">3</div>
+
+        <div id="win-screen" class="screen">
+            <h1 style="color: #ff00ff;">SYSTEM PURIFIED</h1>
+            <p id="final-stats" style="color: #fff; margin-bottom: 40px;"></p>
+            <button class="btn" onclick="location.reload()">RE-INITIALIZE</button>
+        </div>
+    </div>
+
+    <div id="hud">
+        <div class="hud-item" id="hud-score">CORES: 0 / 15</div>
+        <div class="hud-item" id="hud-speed">0 <span id="speed-unit">KM/H</span></div>
+        <div id="nitro-container">
+            <div id="nitro-bar"></div>
+        </div>
+    </div>
+
+    <div id="mobile-controls">
+        <div style="display: flex; gap: 20px;">
+            <div class="ctrl-btn" id="btn-l">L</div>
+            <div class="ctrl-btn" id="btn-r">R</div>
+        </div>
+        <div style="display: flex; gap: 20px;">
+            <div class="ctrl-btn" style="border-color: #ff00ff; color: #ff00ff;" id="btn-n">NOS</div>
+            <div class="ctrl-btn" id="btn-w">GO</div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        // --- CONFIG & STATE ---
+        let scene, camera, renderer, clock;
+        let car, carBody, wheels = [];
+        let cores = [], obstacles = [], speedLines = [], trails = [];
+        let gameState = 'MENU';
+        let score = 0;
+        const totalCores = 15;
+        let startTime = 0;
+
+        const physics = {
+            speed: 0, accel: 0.04, friction: 0.97,
+            maxSpeed: 1.5, nitroMax: 2.5,
+            turn: 0.05, angle: 0, nitro: 100,
+            driftFactor: 0
+        };
+
+        const keys = { w: false, s: false, a: false, d: false, shift: false };
+
+        // --- INIT ---
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x010005);
+            scene.fog = new THREE.FogExp2(0x010005, 0.007);
+
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 2000);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            clock = new THREE.Clock();
+
+            setupLights();
+            setupWorld();
+            setupCar();
+            setupLevel();
+            setupControls();
+
+            window.addEventListener('resize', onResize);
+        }
+
+        function setupLights() {
+            scene.add(new THREE.AmbientLight(0x111133, 0.5));
+            const pL = new THREE.PointLight(0x00ffff, 2, 500);
+            pL.position.set(0, 100, 0);
+            scene.add(pL);
+        }
+
+        function setupWorld() {
+            // High-Res Grid
+            const grid = new THREE.GridHelper(1000, 100, 0x00ffff, 0x220033);
+            grid.position.y = 0.01;
+            grid.material.transparent = true;
+            grid.material.opacity = 0.3;
+            scene.add(grid);
+
+            // Reflective Floor
+            const floor = new THREE.Mesh(
+                new THREE.PlaneGeometry(2000, 2000),
+                new THREE.MeshStandardMaterial({ color: 0x020202, roughness: 0.1, metalness: 0.8 })
+            );
+            floor.rotation.x = -Math.PI/2;
+            scene.add(floor);
+
+            // Stars
+            const starGeo = new THREE.BufferGeometry();
+            const starCount = 5000;
+            const posArr = new Float32Array(starCount * 3);
+            for(let i=0; i<starCount*3; i++) posArr[i] = (Math.random()-0.5) * 1500;
+            starGeo.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+            scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.7 })));
+        }
+
+        function setupCar() {
+            car = new THREE.Group();
+            
+            // Body Design (Cyberpunk Style)
+            carBody = new THREE.Group();
+            const chassis = new THREE.Mesh(
+                new THREE.BoxGeometry(2.4, 0.5, 4.8),
+                new THREE.MeshStandardMaterial({ color: 0x050505, metalness: 1, roughness: 0.1 })
+            );
+            chassis.position.y = 0.6;
+            carBody.add(chassis);
+
+            const cabin = new THREE.Mesh(
+                new THREE.BoxGeometry(1.6, 0.4, 2),
+                new THREE.MeshStandardMaterial({ color: 0x00ffff, transparent: true, opacity: 0.4 })
+            );
+            cabin.position.set(0, 1, 0.2);
+            carBody.add(cabin);
+
+            // Neon Underglow
+            const glow = new THREE.PointLight(0xff00ff, 4, 15);
+            glow.position.y = 0.5;
+            car.add(glow);
+
+            car.add(carBody);
+
+            // Wheels
+            const wGeo = new THREE.CylinderGeometry(0.48, 0.48, 0.6, 24);
+            const wMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
+            [[-1.2, 1.5], [1.2, 1.5], [-1.2, -1.5], [1.2, -1.5]].forEach(p => {
+                const w = new THREE.Mesh(wGeo, wMat);
+                w.rotation.z = Math.PI/2;
+                w.position.set(p[0], 0.48, p[1]);
+                car.add(w);
+                wheels.push(w);
+            });
+
+            scene.add(car);
+        }
+
+        function setupLevel() {
+            // Glowing Cores (Coins)
+            const coreGeo = new THREE.OctahedronGeometry(0.8, 0);
+            const coreMat = new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 2 });
+            
+            for(let i=0; i<totalCores; i++) {
+                const c = new THREE.Mesh(coreGeo, coreMat);
+                c.position.set((Math.random()-0.5)*500, 1.2, (Math.random()-0.5)*500);
+                scene.add(c);
+                cores.push(c);
+            }
+
+            // Skyscrapers
+            const towerGeo = new THREE.BoxGeometry(10, 50, 10);
+            const towerMat = new THREE.MeshStandardMaterial({ color: 0x050505, emissive: 0xff00ff, emissiveIntensity: 0.1 });
+            for(let i=0; i<80; i++) {
+                const t = new THREE.Mesh(towerGeo, towerMat);
+                t.position.set((Math.random()-0.5)*800, 25, (Math.random()-0.5)*800);
+                if(t.position.length() < 50) continue;
+                scene.add(t);
+                obstacles.push(t);
+            }
+        }
+
+        // --- CORE LOOP ---
+        function startGame() {
+            document.getElementById('start-screen').classList.add('hidden');
+            gameState = 'COUNTDOWN';
+            let c = 3;
+            const el = document.getElementById('countdown');
+            el.style.display = 'block';
+            const interval = setInterval(() => {
+                c--;
+                el.innerText = c > 0 ? c : 'IGNITE';
+                if(c < 0) {
+                    clearInterval(interval);
+                    el.style.display = 'none';
+                    gameState = 'PLAYING';
+                    startTime = Date.now();
+                    document.getElementById('hud').style.display = 'block';
+                    if('ontouchstart' in window) document.getElementById('mobile-controls').style.display = 'flex';
+                }
+            }, 1000);
+        }
+
+        function update() {
+            if(gameState !== 'PLAYING') return;
+
+            // Nitro & Speed Lines
+            let targetMax = physics.maxSpeed;
+            const linesEl = document.getElementById('speed-lines');
+            if(keys.shift && physics.nitro > 0 && physics.speed > 0.5) {
+                targetMax = physics.nitroMax;
+                physics.nitro -= 0.6;
+                linesEl.style.opacity = '1';
+                camera.fov = THREE.MathUtils.lerp(camera.fov, 90, 0.1);
+                spawnTrail();
+            } else {
+                physics.nitro = Math.min(100, physics.nitro + 0.15);
+                linesEl.style.opacity = '0';
+                camera.fov = THREE.MathUtils.lerp(camera.fov, 70, 0.1);
+            }
+            camera.updateProjectionMatrix();
+            document.getElementById('nitro-bar').style.width = physics.nitro + '%';
+
+            // Movement Physics
+            if(keys.w) physics.speed += physics.accel;
+            else if(keys.s) physics.speed -= physics.accel * 2;
+            else physics.speed *= physics.friction;
+
+            physics.speed = THREE.MathUtils.clamp(physics.speed, -0.5, targetMax);
+
+            // Turning & Visual Tilt (Drift Feel)
+            let turnTarget = 0;
+            if(Math.abs(physics.speed) > 0.1) {
+                const dir = physics.speed > 0 ? 1 : -1;
+                if(keys.a) { physics.angle += physics.turn * dir; turnTarget = 0.2; }
+                if(keys.d) { physics.angle -= physics.turn * dir; turnTarget = -0.2; }
+            }
+            carBody.rotation.z = THREE.MathUtils.lerp(carBody.rotation.z, turnTarget, 0.1);
+            carBody.rotation.y = THREE.MathUtils.lerp(carBody.rotation.y, turnTarget * 0.5, 0.1);
+
+            car.position.x += Math.sin(physics.angle) * physics.speed;
+            car.position.z += Math.cos(physics.angle) * physics.speed;
+            car.rotation.y = physics.angle;
+
+            // Wheel Spin
+            wheels.forEach(w => w.rotation.x += physics.speed * 0.8);
+
+            // Dynamic Camera Follow
+            const camOffset = new THREE.Vector3(0, 6, -14).applyMatrix4(car.matrixWorld);
+            camera.position.lerp(camOffset, 0.15);
+            camera.lookAt(car.position.clone().add(new THREE.Vector3(0, 1, 0)));
+
+            // Core Collection
+            cores.forEach((c, i) => {
+                c.rotation.y += 0.05;
+                c.position.y = 1.2 + Math.sin(Date.now()*0.005) * 0.3;
+                if(car.position.distanceTo(c.position) < 4) {
+                    scene.remove(c);
+                    cores.splice(i, 1);
+                    score++;
+                    document.getElementById('hud-score').innerText = `CORES: ${score} / ${totalCores}`;
+                    if(score >= totalCores) finishGame();
+                }
+            });
+
+            // Collision Reaction
+            obstacles.forEach(o => {
+                if(car.position.distanceTo(o.position) < 6) {
+                    physics.speed *= -0.5;
+                    physics.angle += (Math.random()-0.5) * 0.2;
+                }
+            });
+
+            // Trail Logic
+            trails.forEach((t, i) => {
+                t.life -= 0.02;
+                t.scale.multiplyScalar(0.96);
+                if(t.life <= 0) {
+                    scene.remove(t);
+                    trails.splice(i, 1);
+                }
+            });
+
+            document.getElementById('hud-speed').innerHTML = `${Math.floor(Math.abs(physics.speed * 140))} <span id="speed-unit">KM/H</span>`;
+        }
+
+        function spawnTrail() {
+            const p = new THREE.Mesh(
+                new THREE.BoxGeometry(1.5, 0.05, 0.8),
+                new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.5 })
+            );
+            p.position.copy(car.position);
+            p.position.y = 0.05;
+            p.rotation.y = car.rotation.y;
+            p.life = 1.0;
+            scene.add(p);
+            trails.push(p);
+        }
+
+        function finishGame() {
+            gameState = 'FINISHED';
+            const time = ((Date.now() - startTime) / 1000).toFixed(2);
+            document.getElementById('final-stats').innerText = `ENCRYPTION TIME: ${time}s | ALL CORES EXTRACTED`;
+            document.getElementById('win-screen').style.display = 'flex';
+            document.getElementById('hud').style.display = 'none';
+        }
+
+        // --- UTILS ---
+        function animate() {
+            requestAnimationFrame(animate);
+            update();
+            renderer.render(scene, camera);
+        }
+
+        function onResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function setupControls() {
+            const map = { w: 'w', s: 's', a: 'a', d: 'd', arrowup: 'w', arrowdown: 's', arrowleft: 'a', arrowright: 'd', shift: 'shift' };
+            window.onkeydown = (e) => { const k = map[e.key.toLowerCase()]; if(k) keys[k] = true; };
+            window.onkeyup = (e) => { const k = map[e.key.toLowerCase()]; if(k) keys[k] = false; };
+
+            const bind = (id, k) => {
+                const el = document.getElementById(id);
+                el.onpointerdown = (e) => { e.preventDefault(); keys[k] = true; };
+                el.onpointerup = () => keys[k] = false;
+            };
+            bind('btn-w', 'w'); bind('btn-l', 'a'); bind('btn-r', 'd'); bind('btn-n', 'shift');
+        }
+
+        init();
+        animate();
+    </script>
+</body>
+</html>

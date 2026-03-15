@@ -119,24 +119,31 @@ function setupWorld() {
 function createStylizedRoads() {
     const roadMat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.dirt, roughness: 1 });
 
-    // Main circular track
-    const trackGeo = new THREE.TorusGeometry(800, 40, 32, 100);
-    const track = new THREE.Mesh(trackGeo, roadMat);
-    track.rotation.x = Math.PI / 2;
-    track.position.y = 0.1;
-    track.receiveShadow = true;
-    scene.add(track);
+    // "Kaccha Road" - Winding path using a CatmullRomCurve
+    const points = [];
+    for (let i = 0; i < 20; i++) {
+        const angle = (i / 20) * Math.PI * 2;
+        const radius = 800 + Math.sin(i * 0.8) * 150;
+        points.push(new THREE.Vector3(Math.cos(angle) * radius, 0.1, Math.sin(angle) * radius));
+    }
+    points.push(points[0].clone());
 
-    // Crossing paths
-    const pathH = new THREE.Mesh(new THREE.PlaneGeometry(1600, 30), roadMat);
-    pathH.rotation.x = -Math.PI / 2;
-    pathH.position.y = 0.12;
-    scene.add(pathH);
+    const curve = new THREE.CatmullRomCurve3(points);
+    const roadGeo = new THREE.TubeGeometry(curve, 100, 45, 8, true);
+    const road = new THREE.Mesh(roadGeo, roadMat);
+    road.receiveShadow = true;
+    scene.add(road);
 
-    const pathV = new THREE.Mesh(new THREE.PlaneGeometry(30, 1600), roadMat);
-    pathV.rotation.x = -Math.PI / 2;
-    pathV.position.y = 0.12;
-    scene.add(pathV);
+    // Add extra "Kaccha" paths to villages
+    const villagePaths = [
+        new THREE.Vector3(500, 0.12, 500),
+        new THREE.Vector3(0, 0.12, 0),
+        new THREE.Vector3(-500, 0.12, -800)
+    ];
+    const pathCurve = new THREE.CatmullRomCurve3(villagePaths);
+    const vRoadGeo = new THREE.TubeGeometry(pathCurve, 20, 30, 8, false);
+    const vRoad = new THREE.Mesh(vRoadGeo, roadMat);
+    scene.add(vRoad);
 }
 
 function createCartoonForest(centerX, centerZ, areaSize) {
@@ -178,6 +185,17 @@ function createCartoonForest(centerX, centerZ, areaSize) {
             tuft.position.set(x + (Math.random()-0.5)*20, 0, z + (Math.random()-0.5)*20);
             scene.add(tuft);
         }
+
+        // Add massive rocks
+        if (Math.random() > 0.98) {
+            const rock = new THREE.Mesh(
+                new THREE.DodecahedronGeometry(10 + Math.random()*20),
+                new THREE.MeshStandardMaterial({color: 0x777777})
+            );
+            rock.position.set(x, 2, z);
+            scene.add(rock);
+            obstacles.push(rock);
+        }
     }
 }
 
@@ -200,23 +218,32 @@ function createGrassTuft() {
 
 function createStylizedTree(leafColor) {
     const group = new THREE.Group();
-    const trunkH = 5 + Math.random()*5;
+    // GIANT TREES: Increased height and scale
+    const scale = 1.0 + Math.random() * 2.5;
+    const trunkH = (8 + Math.random() * 12) * scale;
+    const trunkW = (1.2 + Math.random() * 1) * scale;
+
     const trunk = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.8, 1.2, trunkH, 6),
+        new THREE.CylinderGeometry(trunkW * 0.7, trunkW, trunkH, 6),
         new THREE.MeshStandardMaterial({ color: CONFIG.colors.wood, roughness: 1 })
     );
     trunk.position.y = trunkH / 2;
     trunk.castShadow = true;
     group.add(trunk);
 
-    const leaves = new THREE.Mesh(
-        new THREE.SphereGeometry(trunkH * 0.8, 6, 6),
-        new THREE.MeshStandardMaterial({ color: leafColor, roughness: 1 })
-    );
-    leaves.position.y = trunkH + 2;
-    leaves.scale.y = 1.2;
-    leaves.castShadow = true;
-    group.add(leaves);
+    // Multi-layered leaves for "Bade Bade" trees
+    const layerCount = 2 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < layerCount; i++) {
+        const lSize = (trunkH * 0.45) * (1 - i * 0.2);
+        const leaves = new THREE.Mesh(
+            new THREE.SphereGeometry(lSize, 6, 6),
+            new THREE.MeshStandardMaterial({ color: leafColor, roughness: 1 })
+        );
+        leaves.position.y = trunkH + (i * lSize * 0.8);
+        leaves.scale.y = 0.8;
+        leaves.castShadow = true;
+        group.add(leaves);
+    }
 
     return group;
 }
@@ -288,6 +315,21 @@ function createJungleVillage(x, z) {
         const pLight = new THREE.PointLight(0xff4d00, 2, 20);
         pLight.position.set(hx+15, 5, hz+15);
         scene.add(pLight);
+
+        // Rural Elements: Fences
+        for(let j=0; j<4; j++) {
+            const fence = new THREE.Mesh(new THREE.BoxGeometry(10, 2, 0.5), new THREE.MeshStandardMaterial({color: CONFIG.colors.wood}));
+            fence.position.set(hx + (j==0?8:j==1?-8:0), 1, hz + (j==2?8:j==3?-8:0));
+            if(j>1) fence.rotation.y = Math.PI/2;
+            scene.add(fence);
+        }
+
+        // Rural Elements: Haystacks
+        const hay = new THREE.Mesh(new THREE.SphereGeometry(3, 8, 8, 0, Math.PI*2, 0, Math.PI/2), new THREE.MeshStandardMaterial({color: 0xe9c46a}));
+        hay.position.set(hx - 12, 0, hz + 12);
+        hay.scale.y = 1.2;
+        scene.add(hay);
+        destructibles.push({mesh: hay, type: 'hay'});
     }
 }
 
@@ -567,7 +609,8 @@ function updateNPCs() {
     npcCars.forEach(npc => {
         if(npc.onTrack) {
             npc.angle += npc.speed * 0.002;
-            npc.position.set(Math.cos(npc.angle)*800, 0, Math.sin(npc.angle)*800);
+            const radius = 800 + Math.sin(npc.angle * 20 * 0.8 / (Math.PI*2)) * 150;
+            npc.position.set(Math.cos(npc.angle)*radius, 0, Math.sin(npc.angle)*radius);
             npc.rotation.y = -npc.angle;
         } else {
             npc.position.add(npc.dir.clone().multiplyScalar(npc.speed));

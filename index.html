@@ -3,56 +3,240 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D Open World Racing</title>
+    <title>CYBER CAR PARKOUR 3D - Single Player Stunt Racing</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
+    <!-- Dynamic Speed Lines Overlay on Nitro / High Speed -->
     <div id="speed-lines"></div>
 
+    <!-- MAIN UI OVERLAY -->
     <div id="overlay-ui">
+
+        <!-- 1. MAIN START SCREEN -->
         <div id="start-screen" class="screen">
-            <h1>CITY DRIFT PRO</h1>
-            <p style="color: #ff00ff; margin-bottom: 20px; letter-spacing: 2px;">REALISTIC OPEN WORLD</p>
-            <div style="display: flex; gap: 20px; margin-bottom: 40px;">
-                <button class="btn" id="start-btn">FREE ROAM</button>
-                <button class="btn" id="race-btn" style="border-color: #ff00ff; color: #ff00ff;">RACE MODE</button>
+            <div class="title-container">
+                <div class="sub-badge">SINGLE PLAYER STUNT SKYWAY</div>
+                <h1 class="neon-title">CYBER CAR PARKOUR</h1>
+                <p class="tagline">3D MEGA RAMPS • VERTICAL LOOPS • SKY PARKOUR</p>
             </div>
-            <p style="color: rgba(255,255,255,0.4); font-size: 11px;">WASD TO DRIVE | SHIFT FOR NITRO | SPACE FOR HANDBRAKE</p>
+
+            <div class="menu-btn-group">
+                <button class="btn btn-primary" id="play-btn">START PARKOUR</button>
+                <button class="btn btn-secondary" id="sandbox-btn">STUNT SANDBOX</button>
+                <button class="btn btn-accent" id="garage-btn">GARAGE & CARS</button>
+                <button class="btn btn-subtle" id="controls-btn">CONTROLS</button>
+            </div>
+
+            <div class="quick-settings">
+                <button id="music-toggle-btn" class="pill-btn">🔊 AUDIO: ON</button>
+            </div>
+
+            <div class="controls-hint-bar">
+                <span><kbd>WASD</kbd> / <kbd>ARROWS</kbd> DRIVE & AIR FLIPS</span>
+                <span><kbd>SHIFT</kbd> NITRO</span>
+                <span><kbd>SPACE</kbd> DRIFT</span>
+                <span><kbd>R</kbd> RESPAWN</span>
+                <span><kbd>C</kbd> CAMERA</span>
+            </div>
         </div>
 
-        <div id="countdown">3</div>
-
-        <div id="win-screen" class="screen">
-            <h1 style="color: #ff00ff;">RACE COMPLETE</h1>
-            <p id="final-stats" style="color: #fff; margin-bottom: 40px;"></p>
-            <button class="btn" onclick="location.reload()">RE-INITIALIZE</button>
+        <!-- 2. LEVEL SELECT MODAL -->
+        <div id="level-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>SELECT PARKOUR STAGE</h2>
+                    <button class="close-modal" data-target="level-modal">✕</button>
+                </div>
+                <div class="level-cards-grid" id="level-cards-grid">
+                    <!-- Dynamic level cards populated by main.js -->
+                </div>
+            </div>
         </div>
+
+        <!-- 3. GARAGE MODAL -->
+        <div id="garage-modal" class="modal hidden">
+            <div class="modal-content garage-content">
+                <div class="modal-header">
+                    <h2>STUNT VEHICLE GARAGE</h2>
+                    <button class="close-modal" data-target="garage-modal">✕</button>
+                </div>
+
+                <div class="garage-body">
+                    <div class="car-selector-bar">
+                        <button class="btn-arrow" id="garage-prev-car">◀</button>
+                        <div class="car-name-box">
+                            <h3 id="garage-car-name">Cyber GT Supercar</h3>
+                            <p id="garage-car-desc">Balanced speed, tight handling and aerial agility.</p>
+                        </div>
+                        <button class="btn-arrow" id="garage-next-car">▶</button>
+                    </div>
+
+                    <div class="stats-box">
+                        <div class="stat-row">
+                            <span>TOP SPEED</span>
+                            <div class="stat-bar-bg"><div class="stat-bar-fill" id="stat-speed" style="width: 85%;"></div></div>
+                        </div>
+                        <div class="stat-row">
+                            <span>ACCELERATION</span>
+                            <div class="stat-bar-bg"><div class="stat-bar-fill" id="stat-accel" style="width: 85%;"></div></div>
+                        </div>
+                        <div class="stat-row">
+                            <span>HANDLING & DRIFT</span>
+                            <div class="stat-bar-bg"><div class="stat-bar-fill" id="stat-handling" style="width: 80%;"></div></div>
+                        </div>
+                        <div class="stat-row">
+                            <span>JUMP & AIR AGILITY</span>
+                            <div class="stat-bar-bg"><div class="stat-bar-fill" id="stat-jump" style="width: 80%;"></div></div>
+                        </div>
+                    </div>
+
+                    <div class="custom-color-section">
+                        <h4>NEON UNDERGLOW & ACCENT</h4>
+                        <div class="color-palette" id="neon-color-palette">
+                            <!-- Color dots populated by JS -->
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary close-modal" data-target="garage-modal" style="margin-top: 25px;">SELECT VEHICLE</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. CONTROLS & HOW TO PLAY MODAL -->
+        <div id="controls-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>HOW TO PLAY & CONTROLS</h2>
+                    <button class="close-modal" data-target="controls-modal">✕</button>
+                </div>
+                <div class="controls-guide-grid">
+                    <div class="guide-item">
+                        <div class="guide-key"><kbd>W</kbd> / <kbd>↑</kbd></div>
+                        <div class="guide-desc">Accelerate / In-Air Frontflip</div>
+                    </div>
+                    <div class="guide-item">
+                        <div class="guide-key"><kbd>S</kbd> / <kbd>↓</kbd></div>
+                        <div class="guide-desc">Brake & Reverse / In-Air Backflip</div>
+                    </div>
+                    <div class="guide-item">
+                        <div class="guide-key"><kbd>A</kbd> / <kbd>D</kbd></div>
+                        <div class="guide-desc">Steering / In-Air Barrel Roll & Spin</div>
+                    </div>
+                    <div class="guide-item">
+                        <div class="guide-key"><kbd>SHIFT</kbd></div>
+                        <div class="guide-desc">Nitro Rocket Thrusters (Ground & Air)</div>
+                    </div>
+                    <div class="guide-item">
+                        <div class="guide-key"><kbd>SPACE</kbd></div>
+                        <div class="guide-desc">Handbrake Power Drift</div>
+                    </div>
+                    <div class="guide-item">
+                        <div class="guide-key"><kbd>R</kbd></div>
+                        <div class="guide-desc">Instant Respawn at Checkpoint</div>
+                    </div>
+                    <div class="guide-item">
+                        <div class="guide-key"><kbd>C</kbd></div>
+                        <div class="guide-desc">Toggle Camera Mode (Chase / Close / Hood)</div>
+                    </div>
+                    <div class="guide-item">
+                        <div class="guide-key"><kbd>P</kbd> / <kbd>ESC</kbd></div>
+                        <div class="guide-desc">Pause Menu</div>
+                    </div>
+                </div>
+                <div class="pro-tips">
+                    <h3>PRO PARKOUR TIPS:</h3>
+                    <ul>
+                        <li>✨ Use <kbd>W</kbd> and <kbd>S</kbd> in mid-air to execute 360° Flips for massive stunt score points!</li>
+                        <li>⚡ Drive over glowing green Chevron pads for instant supersonic speed boosts.</li>
+                        <li>🌀 Hold down the throttle on Banked Wall-Rides and Loops; downforce physics keeps you glued to the track.</li>
+                        <li>🚀 If you fall off the skyway, press <kbd>R</kbd> to respawn instantly without delay.</li>
+                    </ul>
+                </div>
+                <button class="btn btn-primary close-modal" data-target="controls-modal">GOT IT</button>
+            </div>
+        </div>
+
+        <!-- 5. PAUSE MODAL -->
+        <div id="pause-modal" class="modal hidden">
+            <div class="modal-content pause-content">
+                <h2>GAME PAUSED</h2>
+                <div class="pause-btn-group">
+                    <button class="btn btn-primary" id="resume-btn">RESUME</button>
+                    <button class="btn btn-secondary" id="restart-btn">RESTART LEVEL</button>
+                    <button class="btn btn-subtle main-menu-btn">MAIN MENU</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. VICTORY / LEVEL COMPLETE SCREEN -->
+        <div id="win-screen" class="screen hidden">
+            <div class="win-banner">STAGE CLEARED!</div>
+            <h1 class="neon-title" style="color: #ffd700; text-shadow: 0 0 30px #ffd700, 0 0 50px #ff00ff;">VICTORY</h1>
+            <div id="final-stats"></div>
+            <div class="win-btn-group">
+                <button class="btn btn-primary" id="next-level-btn">NEXT STAGE ▶</button>
+                <button class="btn btn-secondary" onclick="location.reload()">STAGE SELECT</button>
+            </div>
+        </div>
+
     </div>
 
+    <!-- IN-GAME HUD -->
     <div id="hud">
-        <div class="hud-item" id="hud-score">CORES: 0 / 15</div>
-        <div class="hud-item" id="hud-speed">0 <span id="speed-unit">KM/H</span></div>
-        <div id="nitro-container">
-            <div id="nitro-bar"></div>
+        <!-- Top Info Header -->
+        <div class="hud-top-bar">
+            <div class="hud-box" id="hud-level-name">SKY STARTER</div>
+            <div class="hud-box timer-box" id="hud-timer">00:00.00</div>
+            <div class="hud-box" id="hud-checkpoint">CHECKPOINT: 0 / 3</div>
+            <div class="hud-box score-box" id="hud-score">SCORE: 0</div>
+            <button class="hud-btn" id="btn-pause-hud">⏸</button>
         </div>
-        <div id="minimap-container">
-            <div id="minimap-player"></div>
-            <div id="minimap-objective"></div>
+
+        <!-- Stunt Feed Notifications -->
+        <div id="stunt-feed"></div>
+
+        <!-- Bottom Speedometer & Controls Info -->
+        <div class="hud-bottom-bar">
+            <div class="speedometer-box">
+                <div class="speed-number">
+                    <span id="hud-speed-val">0</span>
+                    <span class="speed-unit">KM/H</span>
+                </div>
+                <div class="nitro-wrapper">
+                    <div class="nitro-label">NITRO BOOST</div>
+                    <div id="nitro-container">
+                        <div id="nitro-bar"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hud-hints">
+                <span class="hud-hint-pill"><kbd>R</kbd> RESPAWN</span>
+                <span class="hud-hint-pill"><kbd>C</kbd> CAM</span>
+            </div>
         </div>
     </div>
 
+    <!-- TOUCH CONTROLS FOR MOBILE / TABLETS -->
     <div id="mobile-controls">
-        <div style="display: flex; gap: 20px;">
-            <div class="ctrl-btn" id="btn-l">L</div>
-            <div class="ctrl-btn" id="btn-r">R</div>
+        <div class="ctrl-group ctrl-left">
+            <div class="ctrl-btn" id="btn-l">◀</div>
+            <div class="ctrl-btn" id="btn-r">▶</div>
         </div>
-        <div style="display: flex; gap: 20px;">
-            <div class="ctrl-btn" style="border-color: #ff00ff; color: #ff00ff;" id="btn-n">NOS</div>
-            <div class="ctrl-btn" id="btn-w">GO</div>
+        <div class="ctrl-group ctrl-center">
+            <div class="ctrl-btn btn-mini" id="btn-respawn">↺ R</div>
+            <div class="ctrl-btn btn-mini" id="btn-cam">📷</div>
+        </div>
+        <div class="ctrl-group ctrl-right">
+            <div class="ctrl-btn btn-brake" id="btn-s">BRAKE / REV</div>
+            <div class="ctrl-btn btn-nitro" id="btn-n">NITRO</div>
+            <div class="ctrl-btn btn-gas" id="btn-w">GAS ▶</div>
         </div>
     </div>
 
+    <!-- Three.js and Cannon-es modules -->
     <script type="importmap">
         {
             "imports": {

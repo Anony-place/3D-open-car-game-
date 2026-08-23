@@ -1,181 +1,184 @@
 import * as THREE from 'three';
-import * as CANNON from 'cannon-es';
 
 export class Environment {
     constructor(scene, world) {
         this.scene = scene;
         this.world = world;
+        this.floatingProps = [];
+        this.clouds = [];
+
         this.init();
     }
 
     init() {
-        this.dayTime = 0.2; // Start in morning
-        this.dayDuration = 300; // 5 minutes for a full cycle
-
-        this.setupLights();
         this.setupSky();
-        this.setupBaseTerrain();
-        this.setupRoads();
-        this.setupProps();
-    }
-
-    setupLights() {
-        this.ambient = new THREE.AmbientLight(0x404040, 0.5);
-        this.scene.add(this.ambient);
-
-        this.sun = new THREE.DirectionalLight(0xffffff, 1.2);
-        this.sun.position.set(100, 200, 100);
-        this.sun.castShadow = true;
-        this.sun.shadow.camera.left = -75;
-        this.sun.shadow.camera.right = 75;
-        this.sun.shadow.camera.top = 75;
-        this.sun.shadow.camera.bottom = -75;
-        this.sun.shadow.mapSize.width = 1024;
-        this.sun.shadow.mapSize.height = 1024;
-        this.sun.shadow.bias = -0.0005;
-        this.scene.add(this.sun);
-
-        // Target for shadows to follow player
-        this.sun.target = new THREE.Object3D();
-        this.scene.add(this.sun.target);
+        this.setupLights();
+        this.setupAbyssGrid();
+        this.setupFloatingCyberDecorations();
     }
 
     setupSky() {
-        this.scene.background = new THREE.Color(0x87ceeb);
-        this.scene.fog = new THREE.FogExp2(0x87ceeb, 0.001);
+        // Deep cyber sunset / space gradient background
+        this.scene.background = new THREE.Color(0x0a0518);
+        this.scene.fog = new THREE.FogExp2(0x0a0518, 0.0018);
     }
 
-    setupBaseTerrain() {
-        const size = 10000;
-        const geometry = new THREE.PlaneGeometry(size, size);
-        const material = new THREE.MeshStandardMaterial({ color: 0x2d4c1e, roughness: 0.9 });
-        const terrain = new THREE.Mesh(geometry, material);
-        terrain.rotation.x = -Math.PI / 2;
-        terrain.receiveShadow = true;
-        this.scene.add(terrain);
+    setupLights() {
+        // Ambient Light
+        this.ambient = new THREE.AmbientLight(0x332244, 0.7);
+        this.scene.add(this.ambient);
+
+        // Main Sun Light (Cyber Golden/Magenta)
+        this.sun = new THREE.DirectionalLight(0xffeedd, 1.3);
+        this.sun.position.set(120, 220, 80);
+        this.sun.castShadow = true;
+        this.sun.shadow.camera.left = -90;
+        this.sun.shadow.camera.right = 90;
+        this.sun.shadow.camera.top = 90;
+        this.sun.shadow.camera.bottom = -90;
+        this.sun.shadow.camera.near = 0.5;
+        this.sun.shadow.camera.far = 600;
+        this.sun.shadow.mapSize.width = 2048;
+        this.sun.shadow.mapSize.height = 2048;
+        this.sun.shadow.bias = -0.0005;
+        this.scene.add(this.sun);
+
+        // Sun target
+        this.sun.target = new THREE.Object3D();
+        this.scene.add(this.sun.target);
+
+        // Rim / Fill Light (Cyber Cyan)
+        this.rimLight = new THREE.DirectionalLight(0x00ffff, 0.6);
+        this.rimLight.position.set(-150, 100, -150);
+        this.scene.add(this.rimLight);
+
+        // Giant Distant Synthwave Sun Disc
+        const sunGeo = new THREE.CircleGeometry(160, 32);
+        const sunMat = new THREE.MeshBasicMaterial({
+            color: 0xff0066,
+            side: THREE.DoubleSide
+        });
+        const sunMesh = new THREE.Mesh(sunGeo, sunMat);
+        sunMesh.position.set(0, 140, -1200);
+        this.scene.add(sunMesh);
     }
 
-    setupRoads() {
-        // Create a simple cross road
-        const roadMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.7 });
+    setupAbyssGrid() {
+        // Infinite Glowing Cyber Grid far below in the abyss (Y = -120)
+        const gridHelper = new THREE.GridHelper(3000, 100, 0xff00ff, 0x00ffff);
+        gridHelper.position.y = -120;
+        this.scene.add(gridHelper);
 
-        const road1 = new THREE.Mesh(new THREE.PlaneGeometry(20, 2000), roadMat);
-        road1.rotation.x = -Math.PI / 2;
-        road1.position.y = 0.05;
-        road1.receiveShadow = true;
-        this.scene.add(road1);
-
-        const road2 = new THREE.Mesh(new THREE.PlaneGeometry(2000, 20), roadMat);
-        road2.rotation.x = -Math.PI / 2;
-        road2.position.y = 0.05;
-        road2.receiveShadow = true;
-        this.scene.add(road2);
+        // Abyss Plane (Dark water/fog plane)
+        const abyssGeo = new THREE.PlaneGeometry(5000, 5000);
+        const abyssMat = new THREE.MeshStandardMaterial({
+            color: 0x03010a,
+            roughness: 0.8,
+            metalness: 0.2
+        });
+        const abyssMesh = new THREE.Mesh(abyssGeo, abyssMat);
+        abyssMesh.rotation.x = -Math.PI / 2;
+        abyssMesh.position.y = -125;
+        this.scene.add(abyssMesh);
     }
 
-    setupProps() {
-        // We will implement instanced buildings and trees here
-        this.createCityArea(new THREE.Vector3(0, 0, -200));
-        this.createForestArea(new THREE.Vector3(200, 0, 200));
-    }
+    setupFloatingCyberDecorations() {
+        // Floating Cyber Pyramids & Rings in the background sky
+        const pyramidGeo = new THREE.TetrahedronGeometry(40);
+        const pyramidMat = new THREE.MeshStandardMaterial({
+            color: 0x1a0f30,
+            emissive: 0x5500aa,
+            emissiveIntensity: 0.2,
+            roughness: 0.3,
+            metalness: 0.8
+        });
 
-    createCityArea(center) {
-        const buildingGeo = new THREE.BoxGeometry(10, 1, 10); // Base height 1, scale height later
-        const buildingMat = new THREE.MeshStandardMaterial({ color: 0x666666 });
-        const count = 60;
+        for (let i = 0; i < 12; i++) {
+            const angle = (i / 12) * Math.PI * 2;
+            const dist = 400 + Math.random() * 300;
+            const x = Math.cos(angle) * dist;
+            const z = Math.sin(angle) * dist;
+            const y = 30 + Math.random() * 120;
 
-        const instancedBuildings = new THREE.InstancedMesh(buildingGeo, buildingMat, count);
-        instancedBuildings.castShadow = true;
-        instancedBuildings.receiveShadow = true;
-
-        const dummy = new THREE.Object3D();
-        for (let i = 0; i < count; i++) {
-            const x = center.x + (Math.random() - 0.5) * 400;
-            const z = center.z + (Math.random() - 0.5) * 400;
-
-            // Avoid spawning on roads (very simple check)
-            if (Math.abs(x) < 15 || Math.abs(z) < 15) continue;
-
-            const h = 20 + Math.random() * 60;
-
-            dummy.position.set(x, h/2, z);
-            dummy.scale.set(1, h, 1);
-            dummy.updateMatrix();
-            instancedBuildings.setMatrixAt(i, dummy.matrix);
-
-            // Physics body
-            const body = new CANNON.Body({ mass: 0 }); // Static
-            body.addShape(new CANNON.Box(new CANNON.Vec3(5, h/2, 5)));
-            body.position.set(x, h/2, z);
-            this.world.addBody(body);
+            const pyramid = new THREE.Mesh(pyramidGeo, pyramidMat);
+            pyramid.position.set(x, y, z);
+            pyramid.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+            this.scene.add(pyramid);
+            this.floatingProps.push({
+                mesh: pyramid,
+                rotSpeedX: (Math.random() - 0.5) * 0.2,
+                rotSpeedY: (Math.random() - 0.5) * 0.3,
+                baseY: y,
+                floatSpeed: 0.5 + Math.random() * 0.5
+            });
         }
 
-        this.scene.add(instancedBuildings);
-    }
+        // Giant Cyber Rings
+        const ringGeo = new THREE.TorusGeometry(80, 2.5, 16, 48);
+        const ringMat = new THREE.MeshBasicMaterial({
+            color: 0x00ffff,
+            wireframe: true
+        });
 
-    createForestArea(center) {
-        const trunkGeo = new THREE.CylinderGeometry(0.5, 0.7, 5);
-        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4d2926 });
-        const count = 300;
-
-        const instancedTrunks = new THREE.InstancedMesh(trunkGeo, trunkMat, count);
-        instancedTrunks.castShadow = true;
-        instancedTrunks.receiveShadow = true;
-
-        const leavesGeo = new THREE.ConeGeometry(3, 8, 8);
-        const leavesMat = new THREE.MeshStandardMaterial({ color: 0x2d5a27 });
-        const instancedLeaves = new THREE.InstancedMesh(leavesGeo, leavesMat, count);
-        instancedLeaves.castShadow = true;
-
-        const dummy = new THREE.Object3D();
-        for (let i = 0; i < count; i++) {
-            const x = center.x + (Math.random() - 0.5) * 600;
-            const z = center.z + (Math.random() - 0.5) * 600;
-
-            if (Math.abs(x) < 15 || Math.abs(z) < 15) continue;
-
-            dummy.position.set(x, 2.5, z);
-            dummy.updateMatrix();
-            instancedTrunks.setMatrixAt(i, dummy.matrix);
-
-            dummy.position.set(x, 7, z);
-            dummy.updateMatrix();
-            instancedLeaves.setMatrixAt(i, dummy.matrix);
-
-            // Physics body for trunk
-            const body = new CANNON.Body({ mass: 0 });
-            body.addShape(new CANNON.Cylinder(0.5, 0.7, 5, 8));
-            body.position.set(x, 2.5, z);
-            this.world.addBody(body);
+        for (let i = 0; i < 4; i++) {
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.position.set(
+                (Math.random() - 0.5) * 800,
+                100 + Math.random() * 100,
+                (Math.random() - 0.5) * 800
+            );
+            ring.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+            this.scene.add(ring);
+            this.floatingProps.push({
+                mesh: ring,
+                rotSpeedX: 0.05,
+                rotSpeedY: 0.08,
+                baseY: ring.position.y,
+                floatSpeed: 0.3
+            });
         }
 
-        this.scene.add(instancedTrunks);
-        this.scene.add(instancedLeaves);
+        // Floating Low-Poly Clouds
+        const cloudGeo = new THREE.DodecahedronGeometry(18, 1);
+        const cloudMat = new THREE.MeshStandardMaterial({
+            color: 0x3d2066,
+            roughness: 0.9,
+            transparent: true,
+            opacity: 0.6
+        });
+
+        for (let i = 0; i < 25; i++) {
+            const cloud = new THREE.Mesh(cloudGeo, cloudMat);
+            const x = (Math.random() - 0.5) * 1200;
+            const y = 10 + Math.random() * 80;
+            const z = (Math.random() - 0.5) * 1200;
+            cloud.position.set(x, y, z);
+            cloud.scale.set(2.5 + Math.random() * 2, 0.8 + Math.random() * 0.5, 2.0 + Math.random() * 1.5);
+            this.scene.add(cloud);
+            this.clouds.push(cloud);
+        }
     }
 
     update(deltaTime, playerPosition) {
-        // 1. Day/Night Cycle
-        this.dayTime += deltaTime / this.dayDuration;
-        if (this.dayTime > 1) this.dayTime = 0;
+        const time = performance.now() * 0.001;
 
-        const angle = this.dayTime * Math.PI * 2;
-        this.sun.position.set(
-            Math.cos(angle) * 200,
-            Math.sin(angle) * 200,
-            100
-        );
+        // Animate floating props
+        this.floatingProps.forEach(item => {
+            item.mesh.rotation.x += item.rotSpeedX * deltaTime;
+            item.mesh.rotation.y += item.rotSpeedY * deltaTime;
+            item.mesh.position.y = item.baseY + Math.sin(time * item.floatSpeed) * 8;
+        });
 
-        const isNight = this.sun.position.y < 0;
-        this.sun.intensity = isNight ? 0 : 1.2;
-        this.ambient.intensity = isNight ? 0.1 : 0.5;
+        // Drift clouds slowly
+        this.clouds.forEach(cloud => {
+            cloud.position.x += 4.0 * deltaTime;
+            if (cloud.position.x > 700) cloud.position.x = -700;
+        });
 
-        const skyColor = new THREE.Color().setHSL(0.6, 0.5, isNight ? 0.05 : 0.6);
-        this.scene.background.lerp(skyColor, 0.05);
-        this.scene.fog.color.lerp(skyColor, 0.05);
-
-        // 2. Shadows follow player
+        // Shadows follow player position
         if (playerPosition) {
-            this.sun.position.x += playerPosition.x;
-            this.sun.position.z += playerPosition.z;
+            this.sun.position.x = playerPosition.x + 120;
+            this.sun.position.z = playerPosition.z + 80;
             this.sun.target.position.copy(playerPosition);
             this.sun.target.updateMatrixWorld();
         }

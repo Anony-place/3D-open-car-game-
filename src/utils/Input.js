@@ -6,16 +6,43 @@ export class Input {
             left: false,
             right: false,
             nitro: false,
-            handbrake: false
+            handbrake: false,
+            respawn: false,
+            jump: false,
+            rollLeft: false,
+            rollRight: false,
+            camSwitch: false,
+            pause: false
+        };
+
+        this.keyJustPressed = {
+            respawn: false,
+            camSwitch: false,
+            pause: false,
+            jump: false,
+            music: false
         };
 
         this.map = {
-            'w': 'forward', 'arrowup': 'forward',
-            's': 'backward', 'arrowdown': 'backward',
-            'a': 'left', 'arrowleft': 'left',
-            'd': 'right', 'arrowright': 'right',
+            'w': 'forward',
+            'arrowup': 'forward',
+            's': 'backward',
+            'arrowdown': 'backward',
+            'a': 'left',
+            'arrowleft': 'left',
+            'd': 'right',
+            'arrowright': 'right',
             'shift': 'nitro',
-            ' ': 'handbrake'
+            ' ': 'handbrake',
+            'r': 'respawn',
+            'c': 'camSwitch',
+            'v': 'camSwitch',
+            'p': 'pause',
+            'escape': 'pause',
+            'e': 'rollRight',
+            'q': 'rollLeft',
+            'j': 'jump',
+            'm': 'music'
         };
 
         window.addEventListener('keydown', (e) => this.onKeyDown(e));
@@ -26,29 +53,67 @@ export class Input {
 
     onKeyDown(e) {
         const key = e.key.toLowerCase();
-        if (this.map[key]) this.keys[this.map[key]] = true;
+        const action = this.map[key];
+        if (action) {
+            if (!this.keys[action]) {
+                this.keyJustPressed[action] = true;
+            }
+            this.keys[action] = true;
+
+            // Prevent default page scrolling for arrows/space
+            if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' ', 'space'].includes(key)) {
+                e.preventDefault();
+            }
+        }
     }
 
     onKeyUp(e) {
         const key = e.key.toLowerCase();
-        if (this.map[key]) this.keys[this.map[key]] = false;
+        const action = this.map[key];
+        if (action) {
+            this.keys[action] = false;
+        }
+    }
+
+    isJustPressed(action) {
+        if (this.keyJustPressed[action]) {
+            this.keyJustPressed[action] = false;
+            return true;
+        }
+        return false;
     }
 
     initMobileControls() {
-        const bind = (id, key) => {
+        const bind = (id, action) => {
             const el = document.getElementById(id);
             if (!el) return;
-            el.addEventListener('pointerdown', (e) => { e.preventDefault(); this.keys[key] = true; });
-            el.addEventListener('pointerup', () => this.keys[key] = false);
-            el.addEventListener('pointerleave', () => this.keys[key] = false);
+
+            const start = (e) => {
+                e.preventDefault();
+                this.keys[action] = true;
+                this.keyJustPressed[action] = true;
+                el.classList.add('active');
+            };
+
+            const end = (e) => {
+                e.preventDefault();
+                this.keys[action] = false;
+                el.classList.remove('active');
+            };
+
+            el.addEventListener('pointerdown', start);
+            el.addEventListener('pointerup', end);
+            el.addEventListener('pointerleave', end);
+            el.addEventListener('pointercancel', end);
         };
 
         bind('btn-w', 'forward');
+        bind('btn-s', 'backward');
         bind('btn-l', 'left');
         bind('btn-r', 'right');
         bind('btn-n', 'nitro');
-        // Add 'S' as backward/brake for mobile if needed, using existing UI
-        const btnS = document.getElementById('btn-s'); // Assuming we might add it
-        if (btnS) bind('btn-s', 'backward');
+        bind('btn-drift', 'handbrake');
+        bind('btn-respawn', 'respawn');
+        bind('btn-cam', 'camSwitch');
     }
 }

@@ -24,6 +24,7 @@ class Game {
         this.player = null;
         this.stuntDetector = null;
         this.isPaused = false;
+        this._hudUpdatable = null;
 
         this.engine.add(this.physics);
         this.engine.add(this.environment);
@@ -36,6 +37,15 @@ class Game {
     }
 
     initPlayer() {
+        // Remove previous HUD updatable to prevent duplication
+        if (this._hudUpdatable) {
+            const idx = this.engine.updatables.indexOf(this._hudUpdatable);
+            if (idx !== -1) {
+                this.engine.updatables.splice(idx, 1);
+            }
+            this._hudUpdatable = null;
+        }
+
         if (this.player) {
             this.player.destroy();
             this.engine.remove(this.player);
@@ -63,7 +73,7 @@ class Game {
         });
 
         // Add dynamic per-frame updates
-        this.engine.updatables.push({
+        const hudUpdatable = {
             update: (deltaTime) => {
                 if (this.player) {
                     // Update Stunt Detector
@@ -105,7 +115,9 @@ class Game {
                     this.audio.updateEngine(this.player.speed, this.player.nitroActive, this.input.keys.backward);
                 }
             }
-        });
+        };
+        this.engine.updatables.push(hudUpdatable);
+        this._hudUpdatable = hudUpdatable;
     }
 
     setupUI() {
